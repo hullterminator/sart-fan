@@ -1,0 +1,58 @@
+#include <DHT.h>
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+
+#define DHTTYPE DHT11 // DHT 11
+#define DHTPIN 2      // Pin which is connected to the DHT sensor
+
+DHT dht(DHTPIN, DHTTYPE);
+LiquidCrystal_I2C lcd(0x27,16,2);
+
+int fanPin = 9; // Pin connected to the fan
+int IRpin = 3; // Pin connected to the IR sensor
+
+volatile int fanSpeed;
+unsigned long fanSpeedTime;
+unsigned long fanSpeedCount;
+
+void setup() {
+  dht.begin();
+  pinMode(fanPin, OUTPUT);
+  pinMode(IRpin, INPUT);
+  lcd.begin();
+  attachInterrupt(digitalPinToInterrupt(IRpin), fanISR, RISING);
+  fanSpeedTime = millis();
+}
+
+void loop() {
+  float temperature = dht.readTemperature();
+  float humidity = dht.readHumidity();
+
+  if (temperature > 28 || humidity > 20) {
+    analogWrite(fanPin, 255); // Turn fan on at full speed
+  } else {
+    analogWrite(fanPin, 0); // Turn fan off
+  }
+
+  if (millis() - fanSpeedTime >= 1000) {
+    fanSpeed = fanSpeedCount * 60; // calculate RPM
+    fanSpeedCount = 0; // reset interrupt count
+    fanSpeedTime = millis(); // reset time
+  }
+
+  lcd.setCursor(0,0);
+  lcd.print("RPM:");
+  lcd.print(fanSpeed);
+  lcd.setCursor(0,1);
+  lcd.print("T:");
+  lcd.print(temperature);
+  lcd.print("C");
+  lcd.print("H:");
+  lcd.print(humidity);
+  lcd.print("%");
+  delay(100);
+}
+
+void fanISR() {
+  fanSpeedCount++;
+}
